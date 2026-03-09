@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/bg_sidebar"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <!-- App Icon Container -->
+    <FrameLayout
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_glass_card"
+        android:backgroundTint="@color/accent_glow"
+        android:foreground="@android:drawable/ic_dialog_info"
+        android:foregroundTint="@color/accent_primary"
+        android:foregroundGravity="center" />
+
+    <!-- App Name -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-black"
+        android:text="ICode Studio"
+        android:textColor="@color/text_title"
+        android:textSize="24sp"
+        android:letterSpacing="-0.01"
+        android:lineHeight="32sp" />
+
+    <!-- Tagline -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:fontFamily="sans-serif-medium"
+        android:text="Pro Code Editor"
+        android:textColor="@color/accent_secondary"
+        android:textSize="11sp"
+        android:textAllCaps="true"
+        android:letterSpacing="0.08" />
+
+    <!-- Accent Bar -->
+    <View
+        android:layout_width="48dp"
+        android:layout_height="3dp"
+        android:layout_marginTop="16dp"
+        android:background="@color/accent_primary" />
+
+    <!-- Spacing -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="16dp" />
+
+</LinearLayout>

@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ========== MAIN APP THEME ========== -->
+    <style name="Theme.ICStudioEditor" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- System bar colors -->
+        <item name="android:statusBarColor">@color/bg_sidebar</item>
+        <item name="android:navigationBarColor">@color/bg_sidebar</item>
+        <item name="android:windowBackground">@color/bg_dark</item>
+        
+        <!-- Material3 color tokens -->
+        <item name="colorPrimary">@color/accent_primary</item>
+        <item name="colorSecondary">@color/accent_secondary</item>
+        <item name="colorTertiary">@color/accent_success</item>
+        <item name="colorError">@color/accent_danger</item>
+    </style>
+
+    <!-- ========== APPBAR OVERLAYS ========== -->
+    <style name="Theme.ICStudioEditor.AppBarOverlay" parent="ThemeOverlay.Material3.Dark.ActionBar" />
+    <style name="Theme.ICStudioEditor.PopupOverlay" parent="ThemeOverlay.Material3.Light" />
+
+    <!-- ========== TYPOGRAPHY SYSTEM ========== -->
+    <!-- Display / Large Headlines -->
+    <style name="TextStyle.Display.Large" parent="TextAppearance.Material3.DisplayLarge">
+        <item name="android:textSize">32sp</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textColorPrimary">@color/text_high</item>
+        <item name="android:letterSpacing">0</item>
+        <item name="android:lineHeight">40sp</item>
+    </style>
+
+    <!-- Headline / Section Titles -->
+    <style name="TextStyle.Headline" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="android:textSize">20sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColorPrimary">@color/text_high</item>
+        <item name="android:letterSpacing">0.015</item>
+        <item name="android:lineHeight">28sp</item>
+    </style>
+
+    <!-- Title / App Bar Title -->
+    <style name="TextStyle.Title" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColorPrimary">@color/text_high</item>
+        <item name="android:letterSpacing">0.015</item>
+        <item name="android:lineHeight">24sp</item>
+    </style>
+
+    <!-- Body / Regular Text -->
+    <style name="TextStyle.Body.Large" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textColorPrimary">@color/text_body</item>
+        <item name="android:letterSpacing">0.01</item>
+        <item name="android:lineHeight">20sp</item>
+    </style>
+
+    <!-- Body / Small Text -->
+    <style name="TextStyle.Body.Small" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textColorPrimary">@color/text_med</item>
+        <item name="android:letterSpacing">0.004</item>
+        <item name="android:lineHeight">16sp</item>
+    </style>
+
+    <!-- Label / Buttons & Small UI -->
+    <style name="TextStyle.Label" parent="TextAppearance.Material3.LabelSmall">
+        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColorPrimary">@color/text_med</item>
+        <item name="android:letterSpacing">0.05</item>
+        <item name="android:lineHeight">16sp</item>
+    </style>
+
+    <!-- Code / Monospace -->
+    <style name="TextStyle.Code" parent="">
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColorPrimary">@color/text_body</item>
+        <item name="android:letterSpacing">0.01</item>
+        <item name="android:lineHeight">20sp</item>
+    </style>
+
+    <!-- ========== COMPONENT STYLES ========== -->
+    <!-- Navigation Menu Item -->
+    <style name="NavMenuTextAppearance" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">@color/text_high</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:letterSpacing">0.01</item>
+    </style>
+
+    <!-- Sidebar Header -->
+    <style name="SidebarHeader.Title" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="android:textSize">22sp</item>
+        <item name="android:fontFamily">sans-serif-black</item>
+        <item name="android:textColor">@color/text_title</item>
+        <item name="android:letterSpacing">0.02</item>
+    </style>
+
+    <style name="SidebarHeader.Subtitle" parent="TextAppearance.Material3.LabelSmall">
+        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">@color/accent_secondary</item>
+        <item name="android:letterSpacing">0.1</item>
+        <item name="android:textAllCaps">true</item>
+    </style>
+
+    <!-- ========== SPACING SYSTEM (dps) ========== -->
+    <!-- XSmall: 4dp, Small: 8dp, Medium: 12dp, Large: 16dp, XLarge: 24dp, XXLarge: 32dp -->
+
+</resources>

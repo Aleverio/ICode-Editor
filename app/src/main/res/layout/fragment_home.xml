@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark"
+    android:orientation="vertical"
+    tools:context=".ui.home.HomeFragment">
+
+    <!-- ========== TAB BAR SECTION ========== -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_sidebar"
+        android:orientation="vertical">
+
+        <!-- Tab Container with Scroll -->
+        <HorizontalScrollView
+            android:id="@+id/tab_bar_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:scrollbars="none"
+            android:overScrollMode="never">
+
+            <LinearLayout
+                android:id="@+id/tab_container"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+
+        <!-- Tab Divider -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/border_subtle" />
+    </LinearLayout>
+
+    <!-- ========== EDITOR WORKSPACE ========== -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal">
+
+        <!-- Line Numbers Gutter -->
+        <ScrollView
+            android:id="@+id/gutter_scroll"
+            android:layout_width="48dp"
+            android:layout_height="match_parent"
+            android:background="@color/bg_sidebar"
+            android:scrollbars="none"
+            android:overScrollMode="never">
+
+            <TextView
+                android:id="@+id/line_numbers"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:padding="12dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_code_line"
+                android:textSize="12sp"
+                android:lineSpacingExtra="6dp"
+                android:text="1\n2\n3" />
+        </ScrollView>
+
+        <!-- Gutter Divider -->
+        <View
+            android:layout_width="1dp"
+            android:layout_height="match_parent"
+            android:background="@color/border_subtle" />
+
+        <!-- Main Code Editor Area -->
+        <HorizontalScrollView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:fillViewport="true"
+            android:overScrollMode="never"
+            android:scrollbars="none">
+
+            <ScrollView
+                android:id="@+id/code_scroll"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:fillViewport="true"
+                android:scrollbarThumbVertical="@color/text_code_line"
+                android:scrollbarSize="2dp">
+
+                <EditText
+                    android:id="@+id/code_editor"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@null"
+                    android:gravity="top|start"
+                    android:hint="Type code here..."
+                    android:inputType="textMultiLine|textNoSuggestions|textVisiblePassword"
+                    android:minWidth="1000dp"
+                    android:padding="16dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_body"
+                    android:textColorHint="@color/text_muted"
+                    android:textSize="13sp"
+                    android:lineSpacingExtra="6dp"
+                    android:letterSpacing="0.01" />
+            </ScrollView>
+        </HorizontalScrollView>
+    </LinearLayout>
+
+</LinearLayout>
