@@ -199,9 +199,7 @@ class FileViewModel : ViewModel() {
 
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         dm.enqueue(request)
-        
-        // Catatan: Proses install biasanya ditangani oleh OS setelah download selesai dari notifikasi
-        // Namun kita bisa mempercantik dengan BroadcastReceiver di MainActivity
+
     }
 
     private fun getMimeType(name: String): String = when (name.substringAfterLast(".", "").lowercase()) {
