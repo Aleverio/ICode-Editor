@@ -81,7 +81,6 @@ export const editorTheme = EditorView.theme(
 
 export const editorExtensions = [
   indentUnit.of('  '),
-  EditorView.lineWrapping,
   syntaxHighlighting(syntaxColors),
 ]
 

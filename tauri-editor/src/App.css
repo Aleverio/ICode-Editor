@@ -249,7 +249,13 @@
 .editor-frame { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 .editor-frame > .cm-theme { display: flex; height: 100%; min-height: 0; flex-direction: column; }
 .editor-frame .cm-editor { height: 100%; min-height: 0; flex: 1; }
-.editor-frame .cm-scroller { min-height: 0; flex: 1; overflow: auto; font-family: var(--mono); }
+.editor-frame .cm-scroller { min-height: 0; flex: 1; overflow: auto; font-family: var(--mono); overscroll-behavior: contain; }
+.editor-frame .cm-scroller, .file-list, .command-list, .terminal-surface .xterm-viewport { scrollbar-color: #4a5059 #15171a; scrollbar-width: thin; }
+.editor-frame .cm-scroller::-webkit-scrollbar, .file-list::-webkit-scrollbar, .command-list::-webkit-scrollbar, .terminal-surface .xterm-viewport::-webkit-scrollbar { width: 8px; height: 8px; }
+.editor-frame .cm-scroller::-webkit-scrollbar-track, .file-list::-webkit-scrollbar-track, .command-list::-webkit-scrollbar-track, .terminal-surface .xterm-viewport::-webkit-scrollbar-track { border-radius: 8px; background: #15171a; }
+.editor-frame .cm-scroller::-webkit-scrollbar-thumb, .file-list::-webkit-scrollbar-thumb, .command-list::-webkit-scrollbar-thumb, .terminal-surface .xterm-viewport::-webkit-scrollbar-thumb { border: 2px solid #15171a; border-radius: 8px; background: #4a5059; }
+.editor-frame .cm-scroller::-webkit-scrollbar-thumb:hover, .file-list::-webkit-scrollbar-thumb:hover, .command-list::-webkit-scrollbar-thumb:hover, .terminal-surface .xterm-viewport::-webkit-scrollbar-thumb:hover { background: #707780; }
+.editor-frame .cm-scroller::-webkit-scrollbar-corner, .terminal-surface .xterm-viewport::-webkit-scrollbar-corner { background: #15171a; }
 .editor-frame .cm-focused { outline: none; }
 .empty-editor { display: grid; height: 100%; place-items: center; color: #90969e; font-family: var(--mono); font-size: 12px; }
 .mobile-symbols { display: none; }
@@ -310,9 +316,7 @@
   .brand-lockup { gap: 8px; }
   .brand-mark { width: 27px; height: 27px; }
   .brand-name { font-size: 15px; }
-  .brand-divider { margin: 0 2px; }
-  .workspace-name { font-size: 9px; }
-  .workspace-chevron { margin-left: -5px; }
+  .brand-divider, .workspace-name { display: none; }
   .top-actions { gap: 1px; }
   .icon-button { width: 44px; height: 44px; }
   .save-button { width: 44px; height: 44px; padding: 0; border-color: transparent; background: transparent; }
