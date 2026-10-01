@@ -20,6 +20,7 @@ import {
   Code2,
   FilePlus2,
   FolderOpen,
+  MoreHorizontal,
   PanelLeft,
   Plus,
   Save,
@@ -226,12 +227,14 @@ function App() {
   const [createError, setCreateError] = useState('')
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [terminalOpen, setTerminalOpen] = useState(false)
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false)
   const [notice, setNotice] = useState('')
   const [editorView, setEditorView] = useState<EditorView | null>(null)
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
   const searchInput = useRef<HTMLInputElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const folderInput = useRef<HTMLInputElement>(null)
+  const actionsMenuRef = useRef<HTMLDivElement>(null)
 
   const activeFile = files.find((file) => file.id === activeId)
   const isDirty = activeFile ? activeFile.content !== savedVersions[activeFile.id] : false
@@ -280,6 +283,22 @@ function App() {
   useEffect(() => {
     folderInput.current?.setAttribute('webkitdirectory', '')
   }, [])
+
+  useEffect(() => {
+    if (!actionsMenuOpen) return
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!actionsMenuRef.current?.contains(event.target as Node)) setActionsMenuOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActionsMenuOpen(false)
+    }
+    window.addEventListener('pointerdown', closeOnOutsidePointer)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('pointerdown', closeOnOutsidePointer)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [actionsMenuOpen])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -563,11 +582,32 @@ function App() {
           <span className="workspace-name">{workspaceName.toUpperCase()}</span>
         </div>
         <nav className="top-actions" aria-label="Editor actions">
-          <button className="icon-button" type="button" title={`Command palette (${primaryKey} Shift P)`} aria-label="Command palette" onClick={() => setCommandPaletteOpen(true)}><Command size={17} /></button>
-          <button className={`icon-button${terminalOpen ? ' is-active' : ''}`} type="button" title={`Toggle terminal (${primaryKey} J)`} aria-label="Toggle terminal" onClick={() => setTerminalOpen((open) => !open)}><Terminal size={17} /></button>
           <button className="icon-button" type="button" title="Find in file" aria-label="Find in file" onClick={() => setSearchOpen((open) => !open)}><Search size={17} /></button>
           <button className="icon-button" type="button" title={workspaceOpenLabel} aria-label={workspaceOpenLabel} onClick={() => void openWorkspace()}><FolderOpen size={17} /></button>
-          <button className={`save-button${isDirty ? ' is-dirty' : ''}`} type="button" title={`Save file (${saveShortcut})`} aria-label="Save file" onClick={() => void saveActiveFile()}><Save size={15} /><span>Save</span><kbd>{saveShortcut}</kbd></button>
+          <div className="actions-menu-anchor" ref={actionsMenuRef}>
+            <button
+              className={`icon-button actions-menu-trigger${actionsMenuOpen ? ' is-active' : ''}`}
+              type="button"
+              title="More actions"
+              aria-label="More actions"
+              aria-haspopup="menu"
+              aria-expanded={actionsMenuOpen}
+              onClick={() => setActionsMenuOpen((open) => !open)}
+            ><MoreHorizontal size={19} /></button>
+            {actionsMenuOpen && (
+              <div className="actions-menu" role="menu" aria-label="Editor actions">
+                <button className="actions-menu-item" type="button" role="menuitem" onClick={() => { setActionsMenuOpen(false); void saveActiveFile() }}>
+                  <Save size={16} /><span>Save</span><kbd>{saveShortcut}</kbd>
+                </button>
+                <button className="actions-menu-item" type="button" role="menuitem" onClick={() => { setActionsMenuOpen(false); setTerminalOpen((open) => !open) }}>
+                  <Terminal size={16} /><span>{terminalOpen ? 'Hide terminal' : 'Show terminal'}</span><kbd>{primaryKey} J</kbd>
+                </button>
+                <button className="actions-menu-item" type="button" role="menuitem" onClick={() => { setActionsMenuOpen(false); setCommandPaletteOpen(true) }}>
+                  <Command size={16} /><span>Command palette</span><kbd>{primaryKey} ⇧ P</kbd>
+                </button>
+              </div>
+            )}
+          </div>
         </nav>
       </header>
 

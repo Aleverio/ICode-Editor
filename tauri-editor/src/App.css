@@ -194,6 +194,13 @@
 .workspace-name { color: #9da3aa; }
 .workspace-chevron { margin-left: -6px; color: #849087; }
 .top-actions { gap: 8px; }
+.actions-menu-anchor { position: relative; display: flex; align-items: center; }
+.actions-menu { position: absolute; z-index: 7; top: calc(100% + 9px); right: 0; display: flex; width: min(270px, calc(100vw - 24px)); flex-direction: column; padding: 5px; border: 1px solid #3b4047; border-radius: 7px; background: #202327; box-shadow: 0 14px 38px rgba(0, 0, 0, .42); }
+.actions-menu-item { display: flex; min-height: 42px; align-items: center; gap: 10px; padding: 0 10px; border: 0; border-radius: 4px; background: transparent; color: #d9dde2; cursor: pointer; text-align: left; }
+.actions-menu-item:hover, .actions-menu-item:focus-visible { background: #30343a; color: #f3f4f6; }
+.actions-menu-item > span { min-width: 0; flex: 1; font-size: 12px; }
+.actions-menu-item > svg { flex: 0 0 auto; color: #aeb4bc; }
+.actions-menu-item kbd { flex: 0 0 auto; color: #9298a0; font-family: var(--mono); font-size: 9px; }
 .icon-button, .small-icon-button, .heading-menu, .tab-add, .tab-close, .search-row button { display: grid; flex: 0 0 auto; place-items: center; border: 0; border-radius: 6px; background: transparent; color: #a4aab1; cursor: pointer; transition: color .15s ease, background-color .15s ease; }
 .icon-button { width: 36px; height: 36px; }
 .icon-button:hover, .small-icon-button:hover, .heading-menu:hover, .tab-add:hover, .tab-close:hover, .search-row button:hover { color: #f1f2f4; background: #2b2f34; }
@@ -317,6 +324,7 @@
   .brand-mark { width: 27px; height: 27px; }
   .brand-name { font-size: 15px; }
   .brand-divider, .workspace-name { display: none; }
+  .actions-menu-item { min-height: 46px; }
   .top-actions { gap: 1px; }
   .icon-button { width: 44px; height: 44px; }
   .save-button { width: 44px; height: 44px; padding: 0; border-color: transparent; background: transparent; }
