@@ -1,0 +1,49 @@
+@import '@fontsource/ibm-plex-sans/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-500.css';
+@import '@fontsource/ibm-plex-sans/latin-600.css';
+@import '@fontsource/ibm-plex-sans/latin-700.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/latin-600.css';
+
+:root {
+  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #d9e0e7;
+  background: #171b20;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+}
+
+button,
+input {
+  font-family: inherit;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 1px solid #79c8ef;
+  outline-offset: 1px;
+}
+
+::selection {
+  color: #f2f7fa;
+  background: #28627e;
+}
