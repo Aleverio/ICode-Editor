@@ -1,47 +1,38 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
-import { css } from '@codemirror/lang-css'
-import { html } from '@codemirror/lang-html'
-import { javascript } from '@codemirror/lang-javascript'
-import { json } from '@codemirror/lang-json'
-import { markdown } from '@codemirror/lang-markdown'
+import { join } from '@tauri-apps/api/path'
 import { findNext, findPrevious, SearchQuery, search, setSearchQuery } from '@codemirror/search'
-import { HighlightStyle, indentUnit, syntaxHighlighting } from '@codemirror/language'
 import { EditorView } from '@codemirror/view'
-import { tags } from '@lezer/highlight'
 import { isTauri } from '@tauri-apps/api/core'
 import { open, save } from '@tauri-apps/plugin-dialog'
-import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
+import { readDir, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
+import { CommandPalette } from './features/editor/CommandPalette'
+import { createEditorCommands, matchesShortcut } from './features/editor/commands'
+import { editorExtensions, editorTheme, extensionFor } from './features/editor/codeMirror'
+import { fileIcon, fileLabel, filenameFromPath, readWorkspace, storageKey } from './features/editor/workspace'
+import type { StarterWorkspaceFile, WorkspaceFile } from './features/editor/types'
 import {
-  Braces,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Circle,
+  Command,
   Code2,
-  FileCode2,
-  FileJson2,
   FilePlus2,
-  FileText,
   FolderOpen,
   PanelLeft,
   Plus,
   Save,
   Search,
+  Terminal,
   X,
 } from 'lucide-react'
 import './App.css'
 
-type WorkspaceFile = {
-  name: string
-  content: string
-  path?: string
-}
+const TerminalPanel = lazy(() => import('./features/terminal/TerminalPanel').then((module) => ({ default: module.TerminalPanel })))
+const workspaceNameStorageKey = 'morrow.workspace.name.v1'
 
-const storageKey = 'morrow.workspace.v1'
-
-const starterFiles: WorkspaceFile[] = [
+const starterFiles: StarterWorkspaceFile[] = [
   {
     name: 'index.html',
     content: `<!doctype html>
@@ -181,105 +172,90 @@ Try adding a note, then remove one. The best tools leave room for the work.`,
   },
 ]
 
-const syntaxColors = HighlightStyle.define([
-  { tag: tags.keyword, color: '#f18b72', fontWeight: '600' },
-  { tag: tags.operator, color: '#c8d98f' },
-  { tag: tags.string, color: '#e6c875' },
-  { tag: tags.number, color: '#94c9e4' },
-  { tag: tags.comment, color: '#74847b', fontStyle: 'italic' },
-  { tag: tags.function(tags.variableName), color: '#a9d9b2' },
-  { tag: tags.typeName, color: '#8ed2c5' },
-  { tag: tags.propertyName, color: '#d6e3d9' },
-  { tag: tags.tagName, color: '#ef977e' },
-  { tag: tags.attributeName, color: '#a9d9b2' },
+const textExtensions = new Set([
+  '.c', '.cc', '.conf', '.cpp', '.cs', '.css', '.dart', '.diff', '.go', '.gradle', '.h', '.hpp',
+  '.html', '.htm', '.ini', '.java', '.js', '.jsx', '.json', '.kt', '.kts', '.lua', '.md', '.mdx',
+  '.mk', '.mjs', '.patch', '.php', '.pl', '.properties', '.py', '.r', '.rb', '.rs', '.sh', '.sql',
+  '.swift', '.toml', '.ts', '.tsx', '.txt', '.xml', '.yaml', '.yml',
 ])
+const textFileNames = new Set([
+  '.dockerignore', '.editorconfig', '.env.example', '.gitattributes', '.gitignore', '.npmrc',
+  '.nvmrc', '.prettierignore', '.prettierrc', '.yarnrc', 'dockerfile', 'license', 'makefile', 'notice',
+])
+const ignoredDirectories = new Set([
+  '.git', '.svn', '.next', '.expo', '.venv', 'build', 'dist', 'node_modules', 'Pods', 'target', 'venv',
+])
+function folderNameFromPath(path: string) {
+  return path.replace(/[\\/]+$/, '').split(/[\\/]/).filter(Boolean).pop() || 'Workspace'
+}
 
-const editorTheme = EditorView.theme(
-  {
-    '&': { height: '100%', color: '#dce7df', backgroundColor: '#111a17' },
-    '.cm-content': {
-      caretColor: '#d9f16a',
-      fontFamily: '"IBM Plex Mono", monospace',
-      fontSize: '13px',
-      padding: '18px 0 32px',
-    },
-    '.cm-line': { padding: '0 20px' },
-    '.cm-gutters': {
-      minWidth: '48px',
-      color: '#64736b',
-      backgroundColor: '#111a17',
-      border: 'none',
-      borderRight: '1px solid #26332d',
-      paddingRight: '8px',
-    },
-    '.cm-activeLine': { backgroundColor: '#18231e' },
-    '.cm-activeLineGutter': { color: '#d9f16a', backgroundColor: '#18231e' },
-    '.cm-cursor': { borderLeftColor: '#d9f16a' },
-    '.cm-selectionBackground, ::selection': { backgroundColor: '#344b3d !important' },
-    '.cm-focused .cm-matchingBracket': { color: '#d9f16a', outline: '1px solid #536a43' },
-    '.cm-searchMatch': { backgroundColor: '#586a36' },
-    '.cm-searchMatch-selected': { backgroundColor: '#8b9e45' },
-  },
-  { dark: true },
-)
+function isSupportedTextFile(name: string) {
+  if (textFileNames.has(name.toLowerCase())) return true
+  const extension = name.slice(name.lastIndexOf('.')).toLowerCase()
+  return textExtensions.has(extension)
+}
 
-function readWorkspace(): WorkspaceFile[] {
+function readWorkspaceName() {
   try {
-    const stored = localStorage.getItem(storageKey)
-    if (stored) {
-      const parsed: unknown = JSON.parse(stored)
-      if (
-        Array.isArray(parsed) &&
-        parsed.every((file) => typeof file?.name === 'string' && typeof file?.content === 'string')
-      ) {
-        return parsed as WorkspaceFile[]
-      }
-    }
+    return localStorage.getItem(workspaceNameStorageKey) || 'Fieldnotes'
   } catch {
-    // Use the bundled example if local storage is unavailable.
+    return 'Fieldnotes'
   }
-  return starterFiles
-}
-
-function extensionFor(filename: string) {
-  if (filename.endsWith('.html') || filename.endsWith('.htm')) return html()
-  if (filename.endsWith('.css')) return css()
-  if (filename.endsWith('.json')) return json()
-  if (filename.endsWith('.md') || filename.endsWith('.mdx')) return markdown()
-  if (/\.(ts|tsx|js|jsx|mjs|cjs)$/.test(filename)) {
-    return javascript({ jsx: true, typescript: /\.(ts|tsx)$/.test(filename) })
-  }
-  return []
-}
-
-function fileIcon(filename: string) {
-  if (filename.endsWith('.json')) return FileJson2
-  if (filename.endsWith('.md')) return FileText
-  if (/\.(html|css|js|jsx|ts|tsx)$/.test(filename)) return FileCode2
-  return Braces
 }
 
 function App() {
-  const [files, setFiles] = useState(readWorkspace)
+  const [files, setFiles] = useState(() => readWorkspace(starterFiles))
   const [savedVersions, setSavedVersions] = useState<Record<string, string>>(() =>
-    Object.fromEntries(readWorkspace().map((file) => [file.name, file.content])),
+    Object.fromEntries(files.map((file) => [file.id, file.content])),
   )
-  const [activeName, setActiveName] = useState('index.html')
-  const [tabs, setTabs] = useState(['index.html', 'src/main.js'])
+  const [activeId, setActiveId] = useState(() => {
+    return files.find((file) => file.name === 'index.html')?.id ?? files[0]?.id ?? ''
+  })
+  const [tabs, setTabs] = useState(() => {
+    const initialTabs = files
+      .filter((file) => file.name === 'index.html' || file.name === 'src/main.js')
+      .map((file) => file.id)
+    return initialTabs.length ? initialTabs : files.slice(0, 1).map((file) => file.id)
+  })
+  const [workspaceName, setWorkspaceName] = useState(readWorkspaceName)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [newFileName, setNewFileName] = useState('src/untitled.ts')
   const [createError, setCreateError] = useState('')
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [terminalOpen, setTerminalOpen] = useState(false)
   const [notice, setNotice] = useState('')
   const [editorView, setEditorView] = useState<EditorView | null>(null)
+  const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
   const searchInput = useRef<HTMLInputElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  const folderInput = useRef<HTMLInputElement>(null)
 
-  const activeFile = files.find((file) => file.name === activeName) ?? files[0]
-  const isDirty = activeFile ? activeFile.content !== savedVersions[activeFile.name] : false
+  const activeFile = files.find((file) => file.id === activeId)
+  const isDirty = activeFile ? activeFile.content !== savedVersions[activeFile.id] : false
   const language = activeFile?.name.split('.').pop()?.toUpperCase() ?? 'TEXT'
+  const isMobilePlatform = /android|iphone|ipad|ipod/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  const workspaceOpenLabel = isMobilePlatform ? 'Open files' : 'Open folder'
+  const documentLineCount = activeFile?.content.split('\n').length ?? 1
+  const editorVirtualSpace = Math.round(Math.min(900, Math.max(220, window.innerHeight * 0.3) + documentLineCount * 3))
+  const saveShortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘ S' : 'Ctrl S'
+  const primaryKey = saveShortcut.startsWith('⌘') ? '⌘' : 'Ctrl'
+
+  const commands = createEditorCommands(primaryKey)
+  const editorLanguageExtensions = useMemo(() => [
+    extensionFor(activeFile?.name ?? ''),
+    search(),
+    ...editorExtensions,
+    EditorView.updateListener.of((update) => {
+      if (!update.docChanged && !update.selectionSet) return
+      const position = update.state.selection.main.head
+      const line = update.state.doc.lineAt(position)
+      setCursorPosition({ line: line.number, column: position - line.from + 1 })
+    }),
+  ], [activeFile?.name])
 
   useEffect(() => {
     try {
@@ -290,43 +266,49 @@ function App() {
   }, [files])
 
   useEffect(() => {
+    try {
+      localStorage.setItem(workspaceNameStorageKey, workspaceName)
+    } catch (error) {
+      console.warn('Workspace name could not be saved locally.', error)
+    }
+  }, [workspaceName])
+
+  useEffect(() => {
     if (searchOpen) searchInput.current?.focus()
   }, [searchOpen])
 
   useEffect(() => {
+    folderInput.current?.setAttribute('webkitdirectory', '')
+  }, [])
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
-        event.preventDefault()
-        void saveActiveFile()
-      }
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
-        event.preventDefault()
-        setSearchOpen(true)
-      }
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'p') {
-        event.preventDefault()
-        setDrawerOpen(true)
-      }
       if (event.key === 'Escape') {
         setDrawerOpen(false)
         setCreateOpen(false)
         setSearchOpen(false)
+        setCommandPaletteOpen(false)
+        return
       }
+      const command = commands.find((item) => item.shortcuts?.some((shortcut) => matchesShortcut(event, shortcut)))
+      if (!command) return
+      event.preventDefault()
+      runCommand(command.id)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   })
 
-  function selectFile(name: string) {
-    setActiveName(name)
-    setTabs((current) => (current.includes(name) ? current : [...current, name]))
+  function selectFile(id: string) {
+    setActiveId(id)
+    setTabs((current) => (current.includes(id) ? current : [...current, id]))
     setDrawerOpen(false)
   }
 
   function updateContent(value: string) {
     if (!activeFile) return
     setFiles((current) => current.map((file) =>
-      file.name === activeFile.name ? { ...file, content: value } : file,
+      file.id === activeFile.id ? { ...file, content: value } : file,
     ))
   }
 
@@ -346,7 +328,7 @@ function App() {
         if (!path) return
         await writeTextFile(path, activeFile.content)
         setFiles((current) => current.map((file) =>
-          file.name === activeFile.name ? { ...file, path } : file,
+          file.id === activeFile.id ? { ...file, path } : file,
         ))
       } else {
         const blob = new Blob([activeFile.content], { type: 'text/plain;charset=utf-8' })
@@ -357,47 +339,134 @@ function App() {
         link.click()
         URL.revokeObjectURL(url)
       }
-      setSavedVersions((current) => ({ ...current, [activeFile.name]: activeFile.content }))
+      setSavedVersions((current) => ({ ...current, [activeFile.id]: activeFile.content }))
       showNotice('File saved')
     } catch {
       showNotice('Could not save this file')
     }
   }
 
-  async function openFile() {
-    if (isTauri()) {
+  function replaceWorkspace(openedFiles: WorkspaceFile[], name: string) {
+    const hasUnsavedChanges = files.some((file) => file.content !== savedVersions[file.id])
+    if (hasUnsavedChanges && !window.confirm('Discard unsaved changes and open another project?')) return
+
+    setFiles(openedFiles)
+    setSavedVersions(Object.fromEntries(openedFiles.map((file) => [file.id, file.content])))
+    setTabs(openedFiles[0] ? [openedFiles[0].id] : [])
+    setActiveId(openedFiles[0]?.id ?? '')
+    setWorkspaceName(name)
+    setDrawerOpen(false)
+    showNotice(openedFiles.length ? `Opened ${name} (${openedFiles.length} files)` : `${name} has no supported text files`)
+  }
+
+  async function readProjectFolder(rootPath: string) {
+    const openedFiles: WorkspaceFile[] = []
+
+    async function visit(directoryPath: string, relativeDirectory: string): Promise<void> {
+      const entries = await readDir(directoryPath)
+
+      for (const entry of entries) {
+        const relativeName = relativeDirectory ? `${relativeDirectory}/${entry.name}` : entry.name
+        const fullPath = await join(directoryPath, entry.name)
+
+        if (entry.isSymlink) continue
+        if (entry.isDirectory) {
+          if (!ignoredDirectories.has(entry.name)) {
+            await visit(fullPath, relativeName)
+          }
+          continue
+        }
+
+        if (!entry.isFile || !isSupportedTextFile(entry.name)) continue
+        const content = await readTextFile(fullPath)
+        openedFiles.push({
+          id: `path:${fullPath.replaceAll('\\', '/')}`,
+          name: relativeName,
+          content,
+          path: fullPath,
+        })
+      }
+    }
+
+    await visit(rootPath, '')
+    return openedFiles.sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true }))
+  }
+
+  async function openWorkspace() {
+    if (isTauri() && !isMobilePlatform) {
       try {
         const selection = await open({
           multiple: false,
+          directory: true,
+        })
+        if (!selection) return
+        const rootPath = Array.isArray(selection) ? selection[0] : selection
+        if (!rootPath) return
+        replaceWorkspace(await readProjectFolder(rootPath), folderNameFromPath(rootPath))
+        return
+      } catch (error) {
+        console.error('Could not read the selected project folder.', error)
+        showNotice('Could not open this folder. Check folder access and try again.')
+        return
+      }
+    }
+
+    if (isTauri()) {
+      try {
+        const selection = await open({
+          multiple: true,
           directory: false,
           filters: [{ name: 'Code files', extensions: ['html', 'htm', 'css', 'js', 'jsx', 'ts', 'tsx', 'json', 'md', 'txt', 'rs', 'py'] }],
         })
-        if (typeof selection !== 'string') return
-        addOpenedFile(selection, await readTextFile(selection))
+        if (!selection) return
+        const paths = Array.isArray(selection) ? selection : [selection]
+        const selectedFiles = await Promise.all(paths.map(async (path) => ({
+          path,
+          content: await readTextFile(path),
+        })))
+        selectedFiles.forEach(({ path, content }) => addOpenedFile(path, content))
         return
       } catch {
         fileInput.current?.click()
         return
       }
     }
-    fileInput.current?.click()
+
+    if (isMobilePlatform) fileInput.current?.click()
+    else folderInput.current?.click()
   }
 
-  function addOpenedFile(path: string, content: string) {
-    const name = path.split(/[\\/]/).pop() || 'opened-file.txt'
-    setFiles((current) => current.some((file) => file.name === name)
-      ? current.map((file) => file.name === name ? { ...file, content, path } : file)
-      : [...current, { name, content, path }],
+  function addOpenedFile(path: string, content: string, keepDistinct = false) {
+    const name = filenameFromPath(path)
+    const existingFile = keepDistinct ? undefined : files.find((file) => file.path === path)
+    const id = existingFile?.id ?? crypto.randomUUID()
+    setFiles((current) => existingFile
+      ? current.map((file) => file.id === id ? { ...file, content, path } : file)
+      : [...current, { id, name, content, ...(keepDistinct ? {} : { path }) }],
     )
-    setSavedVersions((current) => ({ ...current, [name]: content }))
-    selectFile(name)
+    setSavedVersions((current) => ({ ...current, [id]: content }))
+    selectFile(id)
     showNotice(`Opened ${name}`)
   }
 
-  async function importBrowserFile(file?: File) {
-    if (!file) return
-    addOpenedFile(file.name, await file.text())
+  async function importBrowserFiles(fileList?: FileList | null, isFolder = false) {
+    if (!fileList?.length) return
+    const selectedFiles = await Promise.all(Array.from(fileList, async (file) => ({
+      name: file.webkitRelativePath || file.name,
+      content: await file.text(),
+    })))
+    if (isFolder) {
+      const folderName = selectedFiles[0]?.name.split('/')[0] || 'Workspace'
+      const openedFiles = selectedFiles.map(({ name, content }) => {
+        const relativeName = name.includes('/') ? name.slice(name.indexOf('/') + 1) : name
+        return { id: crypto.randomUUID(), name: relativeName, content }
+      })
+      replaceWorkspace(openedFiles, folderName)
+    } else {
+      selectedFiles.forEach(({ name, content }) => addOpenedFile(name, content, true))
+    }
     if (fileInput.current) fileInput.current.value = ''
+    if (folderInput.current) folderInput.current.value = ''
   }
 
   function createFile(event: FormEvent<HTMLFormElement>) {
@@ -408,21 +477,21 @@ function App() {
       setCreateError('A file with that name already exists.')
       return
     }
-    setFiles((current) => [...current, { name, content: '' }])
-    setSavedVersions((current) => ({ ...current, [name]: '' }))
-    setActiveName(name)
-    setTabs((current) => [...current, name])
+    const id = crypto.randomUUID()
+    setFiles((current) => [...current, { id, name, content: '' }])
+    setSavedVersions((current) => ({ ...current, [id]: '' }))
+    setActiveId(id)
+    setTabs((current) => [...current, id])
     setCreateOpen(false)
     setCreateError('')
     setNewFileName('src/untitled.ts')
   }
 
-  function closeTab(name: string) {
-    const nextTabs = tabs.filter((tab) => tab !== name)
+  function closeTab(id: string) {
+    const nextTabs = tabs.filter((tab) => tab !== id)
     setTabs(nextTabs)
-    if (activeName === name) {
-      const nextName = nextTabs[nextTabs.length - 1] ?? files.find((file) => file.name !== name)?.name
-      if (nextName) setActiveName(nextName)
+    if (activeId === id) {
+      setActiveId(nextTabs[nextTabs.length - 1] ?? '')
     }
   }
 
@@ -443,41 +512,83 @@ function App() {
     editorView.focus()
   }
 
+  function writeShellFile(name: string, content: string): string | undefined {
+    const file = files.find((item) => item.name === name)
+    if (file) {
+      setFiles((current) => current.map((item) => item.id === file.id ? { ...item, content } : item))
+      return
+    }
+
+    const id = crypto.randomUUID()
+    setFiles((current) => [...current, { id, name, content }])
+    setSavedVersions((current) => ({ ...current, [id]: '' }))
+  }
+
+  function runCommand(commandId: string) {
+    switch (commandId) {
+      case 'save':
+        void saveActiveFile()
+        break
+      case 'open-workspace':
+        void openWorkspace()
+        break
+      case 'find':
+        setSearchOpen(true)
+        break
+      case 'new-file':
+        setCreateOpen(true)
+        break
+      case 'toggle-explorer':
+        setDrawerOpen((open) => !open)
+        break
+      case 'toggle-terminal':
+        setTerminalOpen((open) => !open)
+        break
+      case 'close-tab':
+        if (activeId) closeTab(activeId)
+        break
+      case 'command-palette':
+        setCommandPaletteOpen(true)
+        break
+    }
+  }
+
   return (
-    <div className="app-shell">
+    <div className={`app-shell${terminalOpen ? ' has-terminal' : ''}`}>
       <header className="topbar">
         <div className="brand-lockup">
           <span className="brand-mark"><Code2 size={17} strokeWidth={2.3} /></span>
           <span className="brand-name">morrow</span>
           <span className="brand-divider" />
-          <span className="workspace-name">FIELDNOTES</span>
-          <ChevronDown className="workspace-chevron" size={14} />
+          <span className="workspace-name">{workspaceName.toUpperCase()}</span>
         </div>
         <nav className="top-actions" aria-label="Editor actions">
+          <button className="icon-button" type="button" title={`Command palette (${primaryKey} Shift P)`} aria-label="Command palette" onClick={() => setCommandPaletteOpen(true)}><Command size={17} /></button>
+          <button className={`icon-button${terminalOpen ? ' is-active' : ''}`} type="button" title={`Toggle terminal (${primaryKey} J)`} aria-label="Toggle terminal" onClick={() => setTerminalOpen((open) => !open)}><Terminal size={17} /></button>
           <button className="icon-button" type="button" title="Find in file" aria-label="Find in file" onClick={() => setSearchOpen((open) => !open)}><Search size={17} /></button>
-          <button className="icon-button" type="button" title="Open file" aria-label="Open file" onClick={() => void openFile()}><FolderOpen size={17} /></button>
-          <button className={`save-button${isDirty ? ' is-dirty' : ''}`} type="button" onClick={() => void saveActiveFile()}><Save size={15} /><span>Save</span><kbd>⌘ S</kbd></button>
+          <button className="icon-button" type="button" title={workspaceOpenLabel} aria-label={workspaceOpenLabel} onClick={() => void openWorkspace()}><FolderOpen size={17} /></button>
+          <button className={`save-button${isDirty ? ' is-dirty' : ''}`} type="button" title={`Save file (${saveShortcut})`} aria-label="Save file" onClick={() => void saveActiveFile()}><Save size={15} /><span>Save</span><kbd>{saveShortcut}</kbd></button>
         </nav>
       </header>
 
       <main className="workspace-layout">
         <aside className={`sidebar${drawerOpen ? ' is-open' : ''}`} aria-label="Project files">
           <div className="sidebar-heading">
-            <div><span className="eyebrow-label">WORKSPACE</span><h1>Fieldnotes</h1></div>
+            <div><span className="eyebrow-label">WORKSPACE</span><h1>{workspaceName}</h1></div>
             <div className="sidebar-tools">
-              <button className="small-icon-button" type="button" title="Open file" aria-label="Open file" onClick={() => void openFile()}><FolderOpen size={16} /></button>
+              <button className="small-icon-button" type="button" title={workspaceOpenLabel} aria-label={workspaceOpenLabel} onClick={() => void openWorkspace()}><FolderOpen size={16} /></button>
               <button className="small-icon-button" type="button" title="New file" aria-label="New file" onClick={() => setCreateOpen(true)}><FilePlus2 size={16} /></button>
             </div>
           </div>
-          <div className="tree-label"><ChevronDown size={13} /><span>FIELDNOTES</span><span className="tree-count">{files.length}</span></div>
+          <div className="tree-label"><FolderOpen size={13} /><span>{workspaceName.toUpperCase()}</span><span className="tree-count">{files.length}</span></div>
           <div className="file-list">
             {files.map((file) => {
               const Icon = fileIcon(file.name)
               return (
-                <button className={`file-row${activeFile?.name === file.name ? ' is-active' : ''}`} key={file.name} type="button" onClick={() => selectFile(file.name)}>
+                <button className={`file-row${activeFile?.id === file.id ? ' is-active' : ''}`} key={file.id} type="button" onClick={() => selectFile(file.id)}>
                   <Icon size={15} strokeWidth={1.7} />
-                  <span>{file.name}</span>
-                  {file.content !== savedVersions[file.name] && <span className="dirty-dot" aria-label="Unsaved changes" />}
+                  <span title={file.path}>{fileLabel(file, files)}</span>
+                  {file.content !== savedVersions[file.id] && <span className="dirty-dot" aria-label="Unsaved changes" />}
                 </button>
               )
             })}
@@ -490,19 +601,20 @@ function App() {
         <section className="editor-pane" aria-label="Code editor">
           <div className="editor-heading">
             <button className="mobile-menu icon-button" type="button" title="Show files" aria-label="Show files" onClick={() => setDrawerOpen(true)}><PanelLeft size={17} /></button>
-            <div className="breadcrumbs"><span>fieldnotes</span><span className="crumb-slash">/</span><span>{activeFile?.name ?? 'No file'}</span></div>
-            <div className="editor-heading-right"><span className="branch-indicator"><span />main</span><button className="heading-menu" type="button" title="More workspace actions" aria-label="More workspace actions"><span /><span /><span /></button></div>
+            <div className="breadcrumbs"><span>{workspaceName.toLowerCase()}</span><span className="crumb-slash">/</span><span>{activeFile?.name ?? 'No file'}</span></div>
+            <div className="editor-heading-right"><span className={`document-state${isDirty ? ' is-dirty' : ''}`} aria-live="polite"><Circle size={8} fill="currentColor" />{isDirty ? 'Unsaved' : 'Saved'}</span></div>
           </div>
 
           <div className="tab-strip" role="tablist" aria-label="Open files">
-            {tabs.filter((name) => files.some((file) => file.name === name)).map((name) => {
-              const file = files.find((item) => item.name === name)
+            {tabs.filter((id) => files.some((file) => file.id === id)).map((id) => {
+              const file = files.find((item) => item.id === id)
+              const name = file ? fileLabel(file, files) : ''
               const Icon = fileIcon(name)
-              const dirty = file ? file.content !== savedVersions[name] : false
+              const dirty = file ? file.content !== savedVersions[id] : false
               return (
-                <div className={`file-tab${activeName === name ? ' is-active' : ''}`} key={name} role="tab" aria-selected={activeName === name}>
-                  <button type="button" onClick={() => selectFile(name)}><Icon size={14} /><span>{name.split('/').pop()}</span>{dirty && <span className="dirty-dot" />}</button>
-                  <button className="tab-close" type="button" title={`Close ${name}`} aria-label={`Close ${name}`} onClick={() => closeTab(name)}><X size={13} /></button>
+                <div className={`file-tab${activeId === id ? ' is-active' : ''}`} key={id} role="tab" aria-selected={activeId === id}>
+                  <button type="button" title={file?.path} onClick={() => selectFile(id)}><Icon size={14} /><span>{name}</span>{dirty && <span className="dirty-dot" />}</button>
+                  <button className="tab-close" type="button" title={`Close ${file?.path ?? name}`} aria-label={`Close ${file?.path ?? name}`} onClick={() => closeTab(id)}><X size={13} /></button>
                 </div>
               )
             })}
@@ -531,19 +643,25 @@ function App() {
             </div>
           )}
 
-          <div className="editor-frame">
+          <div className="editor-frame" style={{ '--editor-virtual-space': `${editorVirtualSpace}px` } as CSSProperties}>
             {activeFile ? (
               <CodeMirror
                 value={activeFile.content}
                 height="100%"
                 theme={editorTheme}
-                extensions={[extensionFor(activeFile.name), search(), indentUnit.of('  '), EditorView.lineWrapping, syntaxHighlighting(syntaxColors)]}
+                extensions={editorLanguageExtensions}
                 onChange={updateContent}
                 onCreateEditor={(view) => setEditorView(view)}
                 basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: true, highlightActiveLineGutter: true, bracketMatching: true, closeBrackets: true, autocompletion: true, tabSize: 2 }}
               />
             ) : <div className="empty-editor">Create a file to begin.</div>}
           </div>
+
+          {terminalOpen && (
+            <Suspense fallback={<div className="terminal-loading">Starting Morrow Shell...</div>}>
+              <TerminalPanel files={files} onWriteFile={writeShellFile} onClose={() => setTerminalOpen(false)} />
+            </Suspense>
+          )}
 
           <div className="mobile-symbols" aria-label="Code symbols">
             {[
@@ -560,14 +678,15 @@ function App() {
           <footer className="statusbar">
             <div className="status-left">
               <span className="status-live"><Circle size={8} fill="currentColor" /></span><span>Ready</span><span className="status-separator" />
-              <span>{editorView ? `Ln ${editorView.state.doc.lineAt(editorView.state.selection.main.head).number}, Col ${editorView.state.selection.main.head - editorView.state.doc.lineAt(editorView.state.selection.main.head).from + 1}` : 'Ln 1, Col 1'}</span>
+              <span>Ln {cursorPosition.line}, Col {cursorPosition.column}</span>
             </div>
             <div className="status-right"><span>Spaces: 2</span><span>UTF-8</span><span>{language}</span></div>
           </footer>
         </section>
       </main>
 
-      <input ref={fileInput} className="visually-hidden" type="file" accept=".html,.htm,.css,.js,.jsx,.ts,.tsx,.json,.md,.txt,.rs,.py" onChange={(event) => void importBrowserFile(event.target.files?.[0])} />
+      <input ref={fileInput} className="visually-hidden" type="file" multiple accept=".html,.htm,.css,.js,.jsx,.ts,.tsx,.json,.md,.txt,.rs,.py" onChange={(event) => void importBrowserFiles(event.target.files)} />
+      <input ref={folderInput} className="visually-hidden" type="file" multiple accept=".html,.htm,.css,.js,.jsx,.ts,.tsx,.json,.md,.txt,.rs,.py" onChange={(event) => void importBrowserFiles(event.target.files, true)} />
 
       {createOpen && (
         <div className="modal-scrim" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreateOpen(false) }}>
@@ -580,6 +699,8 @@ function App() {
           </form>
         </div>
       )}
+
+  {commandPaletteOpen && <CommandPalette commands={commands} onClose={() => setCommandPaletteOpen(false)} onRun={runCommand} />}
 
       {notice && <div className="notice" role="status"><Check size={15} />{notice}</div>}
     </div>
